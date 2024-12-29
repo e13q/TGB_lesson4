@@ -25,7 +25,7 @@ def load_from_json(filename):
 
 all_questions = load_from_json('QA.json')
 
-QUESTIONS_COUNT = 3
+QUESTIONS_COUNT = 5
 
 
 def create_quiz(user_key):
@@ -92,6 +92,14 @@ def try_update_question(user_key):
         return True
     else:
         return False
+
+
+def get_state(user_key):
+    return redis_db.hget(user_key, "state")
+
+
+def set_state(user_key, state):
+    redis_db.hset(user_key, "state", state)
 
 
 def add_points(user_key):
