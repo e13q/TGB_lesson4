@@ -1,9 +1,4 @@
 import logging
-import json
-import random
-import re
-
-from environs import Env
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Updater,
@@ -12,33 +7,26 @@ from telegram.ext import (
     Filters,
     ConversationHandler
 )
-import redis
+
 
 from bot_logging import setup_logger, exception_out
+from quiz_logic import (
+    create_quiz,
+    get_question_info,
+    get_score,
+    is_correct_answer,
+    add_points,
+    get_correct_answer,
+    try_update_question
+)
+from quiz_logic import env
 
-redis_db = None
-all_questions = None
-QUESTIONS_COUNT = 3
+HASH_START = "user_tg"
 
 
-def load_from_json(filename):
-    with open(filename, 'r', encoding='utf-8') as json_file:
-        data = json.load(json_file)
-    return data
-
-
-# Функция для начала разговора
 def start(update: Update, context):
-    questions = redis_db.get('questions')
-    user_key = f"user:{update.effective_user.id}"
-    questions = random.sample(all_questions, QUESTIONS_COUNT)
-    question = questions.pop(0)
-    redis_db.hset(user_key, mapping={
-        "score": 0,
-        "questions": json.dumps(questions),
-        "question": question['question'],
-        "answer": question['answer']
-    })
+    user_key = f"{HASH_START}:{update.effective_user.id}"
+    create_quiz(user_key)
     reply_keyboard = [['Вопрос', 'Сдаться', 'Узнать счёт']]
     markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
     update.message.reply_text(
@@ -48,87 +36,48 @@ def start(update: Update, context):
     return "START"
 
 
-def get_next_question(user_key):
-    questions = json.loads(redis_db.hget(user_key, "questions"))
-    if questions:
-        question = questions.pop(0)
-        redis_db.hset(user_key, 'questions', json.dumps(questions))
-        return question
-    else:
-        return None
-
-
 def ask_question(update: Update, context):
-    user_key = f"user:{update.effective_user.id}"
-    answer = redis_db.hget(user_key, "answer") # удали
-    question = redis_db.hget(user_key, "question")
-    questions = json.loads(redis_db.hget(user_key, "questions"))
-    question_num = QUESTIONS_COUNT - len(questions)
+    user_key = f"{HASH_START}:{update.effective_user.id}"
+    question, answer, question_num = get_question_info(user_key)
     update.message.reply_text(
-        f'Вопрос №{question_num}:\n{question}\n\n<tg-spoiler>{answer}</tg-spoiler>', parse_mode = 'HTML'
+        f'Вопрос №{question_num}:\n{question}\n\n<tg-spoiler>{answer}</tg-spoiler>', parse_mode = 'HTML' # noqa
     )
     return "ANSWER"
 
 
 def show_score(update: Update, context):
-    user_key = f"user:{update.effective_user.id}"
-    score = redis_db.hget(user_key, "score")
+    user_key = f"{HASH_START}:{update.effective_user.id}"
+    score = get_score(user_key)
     update.message.reply_text(f'Ваш счёт: {score}')
     return "START"
 
 
-def clean_and_toggle_answer(input_string):
-    ''' Нормализации ответа (регистр, спецсимволы) '''
-    cleaned_string = re.sub(r'[^a-zA-Zа-яА-Я]', '', input_string)
-    toggled_string = ''.join([char.upper() if char.islower() else char.upper() for char in cleaned_string])
-
-    return toggled_string
-
-
 def check_answer(update: Update, context):
-    user_key = f"user:{update.effective_user.id}"
-    user_answer = clean_and_toggle_answer(update.message.text)
-    correct_answer = clean_and_toggle_answer(redis_db.hget(user_key, "answer"))
-    if user_answer == correct_answer:
+    user_key = f"{HASH_START}:{update.effective_user.id}"
+    if is_correct_answer(user_key, update.message.text):
         update.message.reply_text('Правильно!')
-        score = int(redis_db.hget(user_key, "score"))
-        score += 1
-        redis_db.hset(user_key, "score", score)
+        add_points(user_key)
         give_up(update, context)
         return "START"
     else:
-        update.message.reply_text('Неправильно. Попробуйте еще раз или нажмите "Сдаться".')
+        update.message.reply_text('Неправильно. Попробуйте еще раз или нажмите "Сдаться".') # noqa
         return "ANSWER"
 
 
 def give_up(update: Update, context):
-    user_key = f"user:{update.effective_user.id}"
-    correct_answer = redis_db.hget(user_key, "answer")
+    user_key = f"{HASH_START}:{update.effective_user.id}"
+    correct_answer = get_correct_answer(user_key)
     update.message.reply_text(f'Правильный ответ: {correct_answer}')
-    question = get_next_question(user_key)
-    if question:
-        redis_db.hset(user_key, "answer", question['answer'])
-        redis_db.hset(user_key, "question", question['question'])
-    else:
-        score = redis_db.hget(user_key, "score")
+    if not try_update_question(user_key):
+        score = get_score(user_key)
         update.message.reply_text(
-            f"Все вопросы закончились!\nВаш итоговый счёт составил: {score}\nНачинаем новую игру!"
+            f"Все вопросы закончились!\nВаш итоговый счёт составил: {score}\nНачинаем новую игру!" # noqa
         )
         start(update, context)
     return "START"
 
 
 if __name__ == "__main__":
-    env = Env()
-    env.read_env()
-    redis_db = redis.Redis(
-        host=env.str('REDIS_CLOUD_HOST'),
-        port=env.int('REDIS_CLOUD_PORT'),
-        decode_responses=True,
-        username=env.str('REDIS_CLOUD_USERNAME'),
-        password=env.str('REDIS_CLOUD_PASSWORD'),
-    )
-    all_questions = load_from_json('QA.json')
     main_bot_token = env.str('TELEGRAM_MAIN_BOT_TOKEN')
     setup_logger(
         env.str('TELEGRAM_LOGGER_BOT_TOKEN_TG'),

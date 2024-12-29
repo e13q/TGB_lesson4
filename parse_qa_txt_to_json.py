@@ -3,7 +3,10 @@ import json
 
 
 def read_files_from_directory(directory):
-    ''' Переход по .txt файлам с вопросами и ответами с целью сбора всех вопросов и ответов'''
+    '''
+    Переход по .txt файлам с вопросами и ответами
+    с целью сбора всех вопросов и ответов
+    '''
     questions_answers = []
     for filename in os.listdir(directory):
         if filename.endswith(".txt"):
@@ -59,6 +62,7 @@ def save_to_json(data, filename):
     '''Экспорт данных в Json'''
     with open(filename, 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file, ensure_ascii=False, indent=4)
+
 
 if __name__ == '__main__':
     questions_answers = read_files_from_directory('./quiz-questions')
