@@ -2,7 +2,7 @@ import os
 import json
 
 
-def read_files_from_directory(directory):
+def extract_questions_answers(directory):
     '''
     Переход по .txt файлам с вопросами и ответами
     с целью сбора всех вопросов и ответов
@@ -65,5 +65,5 @@ def save_to_json(data, filename):
 
 
 if __name__ == '__main__':
-    questions_answers = read_files_from_directory('./quiz-questions')
+    questions_answers = extract_questions_answers('./quiz-questions')
     save_to_json(questions_answers, 'QA.json')
