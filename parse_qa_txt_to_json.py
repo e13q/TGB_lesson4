@@ -19,42 +19,22 @@ def extract_questions_answers(directory):
 
 def parse_content(content):
     ''' Парсинг файлов на вопросы и ответы'''
-    lines = content.split('\n')
+    lines = content.split('\n\n')
     question_answer_pairs = []
     question = None
     answer = None
-
-    iteration = iter(lines)
+    iteration = lines
     for line in iteration:
-        line = line.strip()
-        question = ''
-        answer = ''
         if line.startswith('Вопрос'):
-            while (line and line != ''):
-                line = next(iteration)
-                if '.jpg' in line:
-                    question = ''
-                    break
-                if question == '':
-                    question = line
-                else:
-                    if line.startswith(' '):
-                        question = f'{question}{line}'
-                    else:
-                        question = f'{question} {line}'
-            line = next(iteration)
-            if line.startswith('Ответ'):
-                while (line and line != ''):
-                    line = next(iteration)
-                    if '.jpg' in line or len(line) > 20:
-                        answer = ''
-                        break
-                    answer = f'{answer}\n{line}'
-            if question and answer:
-                question_answer_pairs.append(
-                    {'question': question, 'answer': answer}
-                )
-
+            question = line[line.index(':')+2:]
+        elif line.startswith('Ответ:'):
+            answer = line[line.index(':')+2:]
+        if question and answer:
+            question_answer_pairs.append(
+                {'question': question, 'answer': answer}
+            )
+            question = ''
+            answer = ''
     return question_answer_pairs
 
 

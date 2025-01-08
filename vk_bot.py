@@ -1,13 +1,14 @@
 import random
 import logging
 import json
+import time
 
 import vk_api as vk
 from vk_api.longpoll import VkLongPoll, VkEventType
 import redis
 from environs import Env
 
-from bot_logging import setup_logger, exception_out
+from bot_logging import setup_logger
 from quiz_logic import (
     create_quiz,
     get_question_info,
@@ -148,6 +149,5 @@ if __name__ == "__main__":
                         else:
                             user_state = check_answer(event, vk_api, redis_db)
     except Exception as e:
-        exception_out(
-            'Шеф, у нас неожиданная ошибка: ', e
-        )
+        logging.info(f'Шеф, у нас неожиданная ошибка: {e}', exc_info=True)
+        time.sleep(4)

@@ -1,5 +1,4 @@
 import logging
-import time
 
 from telegram.ext import Updater
 
@@ -15,11 +14,6 @@ class TelegramLogHandler(logging.Handler):
             chat_id=self.log_chat_id,
             text=self.format(record)
         )
-
-
-def exception_out(text, exception):
-    logging.info(f'{text}: {exception}', exc_info=True)
-    time.sleep(4)
 
 
 def setup_logger(token, log_chat_id):

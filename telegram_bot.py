@@ -1,4 +1,6 @@
 import logging
+import time
+
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Updater,
@@ -10,7 +12,7 @@ from telegram.ext import (
 import redis
 from environs import Env
 
-from bot_logging import setup_logger, exception_out
+from bot_logging import setup_logger
 from quiz_logic import (
     create_quiz,
     get_question_info,
@@ -131,6 +133,5 @@ if __name__ == "__main__":
             updater.start_polling()
             updater.idle()
         except Exception as e:
-            exception_out(
-                'Шеф, у нас неожиданная ошибка: ', e
-            )
+            logging.info(f'Шеф, у нас неожиданная ошибка: {e}', exc_info=True)
+            time.sleep(4)
